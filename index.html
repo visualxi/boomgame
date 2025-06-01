@@ -252,16 +252,13 @@
         function initAudio() { 
             if (audioContextStarted || typeof Tone === 'undefined') return;
             Tone.start().then(() => {
-                // Use PolySynth to allow simultaneous notes from the pattern
                 musicSynth = new Tone.PolySynth(Tone.FMSynth).toDestination();
-                musicSynth.set({ // Apply FMSynth options to the PolySynth
-                    harmonicity: 2.5,
-                    modulationIndex: 8,
+                musicSynth.set({ 
+                    harmonicity: 2.5, modulationIndex: 8,
                     envelope: { attack: 0.02, decay: 0.2, sustain: 0.05, release: 0.4 },
                     modulationEnvelope: { attack: 0.02, decay: 0.1, sustain: 0.05, release: 0.4 }
                 });
-                musicSynth.volume.value = -18; // Adjust volume as needed for PolySynth
-
+                musicSynth.volume.value = -18; 
                 const musicPattern = [ 
                     { time: "0:0", note: "E2", duration: "2n" }, { time: "0:0", note: "E3", duration: "8n" },
                     { time: "0:0:2", note: "F#3", duration: "8n" }, { time: "0:1", note: "E3", duration: "8n" },
@@ -270,14 +267,14 @@
                     { time: "0:3:2", note: "B3", duration: "8n" }, { time: "1:0", note: "A3", duration: "8n" }, 
                     { time: "1:0:2", note: "G#3", duration: "8n" }, { time: "1:1", note: "F#3", duration: "4n" },
                 ];
-                if (musicPart) { // Dispose of old part if it exists
+                if (musicPart) { 
                     musicPart.stop();
                     musicPart.dispose();
                 }
                 musicPart = new Tone.Part((time, value) => { 
                     if(musicSynth) musicSynth.triggerAttackRelease(value.note, value.duration, time); 
                 }, musicPattern);
-                musicPart.loop = true; musicPart.loopEnd = "1:2"; // Pattern is 1.5 measures long
+                musicPart.loop = true; musicPart.loopEnd = "1:2"; 
                 
                 Tone.Transport.bpm.value = 95; 
                 if (Tone.Transport.state !== "started") {
@@ -295,10 +292,66 @@
         const defaultBasePalette = { 
             wall_primary_light: 'rgb(119,119,119)', wall_primary_dark: 'rgb(85,85,85)', wall_primary_detail_light: 'rgb(153,153,153)', wall_primary_detail_dark: 'rgb(102,102,102)', wall_secondary_light: 'rgb(85,51,153)', wall_secondary_dark: 'rgb(51,17,119)', wall_secondary_detail_light: 'rgb(119,85,187)', wall_secondary_detail_dark: 'rgb(68,34,136)', floor_light: 'rgb(68,68,68)', floor_dark: 'rgb(51,51,51)', sky_top: 'rgb(34,34,85)', sky_bottom: 'rgb(68,68,119)', pink_monster_body: 'rgb(238,85,153)', pink_monster_eye: 'rgb(255,221,0)', pink_monster_horn: 'rgb(204,68,119)', grunt_body: 'rgb(0,153,0)', grunt_eye: 'rgb(221,0,0)', grunt_detail: 'rgb(0,119,0)', enemy_hit: 'rgb(255,255,255)', gun_body: 'rgb(68,68,68)', gun_barrel: 'rgb(51,51,51)', gun_grip: 'rgb(85,85,85)', gun_sight: 'rgb(34,34,34)', gun_flash: 'rgba(255,204,0,0.75)',
         };
+        
+        // --- New Open Map Designs ---
+        const MAP_WIDTH = 20;
+        const MAP_HEIGHT = 15;
+
+        function createOpenMapWithObstacles(obstacleConfigs) {
+            let newMap = Array(MAP_HEIGHT).fill(null).map(() => Array(MAP_WIDTH).fill(0));
+            // Create borders
+            for (let r = 0; r < MAP_HEIGHT; r++) {
+                newMap[r][0] = 1;
+                newMap[r][MAP_WIDTH - 1] = 1;
+            }
+            for (let c = 0; c < MAP_WIDTH; c++) {
+                newMap[0][c] = 1;
+                newMap[MAP_HEIGHT - 1][c] = 1;
+            }
+            // Place obstacles
+            obstacleConfigs.forEach(obs => {
+                for (let r_offset = 0; r_offset < obs.h; r_offset++) {
+                    for (let c_offset = 0; c_offset < obs.w; c_offset++) {
+                        if (obs.r + r_offset < MAP_HEIGHT -1 && obs.c + c_offset < MAP_WIDTH -1 && obs.r + r_offset > 0 && obs.c + c_offset > 0) { // Ensure within bounds and not on border
+                           newMap[obs.r + r_offset][obs.c + c_offset] = obs.type;
+                        }
+                    }
+                }
+            });
+            return newMap;
+        }
+
         const levelData = [ 
-            { map: [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,1],[1,0,2,2,0,1,0,0,0,0,0,0,0,0,1,0,2,2,0,1],[1,0,0,0,0,1,0,0,1,1,1,1,0,0,0,0,0,0,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,1],[2,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,2],[1,0,1,0,0,0,0,1,0,2,2,0,1,0,0,0,0,1,0,1],[1,0,1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1,0,1],[1,0,0,0,0,2,0,0,0,0,0,0,0,0,2,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]], enemyConfigs: [ { x: 7.5, y: 1.5, type: 'pink_monster'} ], paletteOverrides: {}, playerStartAngle: -Math.PI / 2 }, 
-            { map: [[2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],[2,0,0,0,0,0,0,1,1,0,0,0,0,0,0,2],[2,0,1,1,0,0,0,0,0,0,0,0,1,1,0,2],[2,0,1,0,0,0,0,0,0,0,0,0,0,1,0,2],[2,0,0,0,1,1,1,0,0,1,1,1,0,0,0,2],[2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],[2,0,1,0,0,0,0,0,0,0,0,0,0,1,0,2],[2,0,1,1,0,0,1,0,0,1,0,0,1,1,0,2],[2,0,0,0,0,0,1,0,0,1,0,0,0,0,0,2],[2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2]], enemyConfigs: [ { x: 7.5, y: 7.5, type: 'grunt'} ], paletteOverrides: { sky_top: 'rgb(100,40,20)', sky_bottom: 'rgb(150,60,40)', floor_light: 'rgb(120,80,70)', floor_dark: 'rgb(100,60,50)', wall_primary_light: 'rgb(180,100,80)', wall_primary_dark: 'rgb(150,70,50)', wall_primary_detail_light: 'rgb(200,120,100)', wall_primary_detail_dark: 'rgb(160,90,70)', wall_secondary_light: 'rgb(140,60,40)', wall_secondary_dark: 'rgb(110,40,20)', wall_secondary_detail_light: 'rgb(160,80,60)', wall_secondary_detail_dark: 'rgb(120,50,30)'}, playerStartAngle: Math.PI / 4 },
-            { map: [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,2,2,2,2,0,0,1,1,0,0,2,2,2,2,0,0,1],[1,0,0,2,0,0,2,0,0,1,1,0,0,2,0,0,2,0,0,1],[1,0,0,2,0,0,2,0,0,0,0,0,0,2,0,0,2,0,0,1],[1,0,0,2,2,2,2,0,0,0,0,0,0,2,2,2,2,0,0,1],[1,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]], enemyConfigs: [ { x: 9.5, y: 1.5, type: 'pink_monster'} ], paletteOverrides: { sky_top: 'rgb(40,80,30)', sky_bottom: 'rgb(60,120,50)', floor_light: 'rgb(70,90,60)', floor_dark: 'rgb(50,70,40)', wall_primary_light: 'rgb(100,140,90)', wall_primary_dark: 'rgb(70,110,60)', wall_primary_detail_light: 'rgb(120,160,110)', wall_primary_detail_dark: 'rgb(80,120,70)', wall_secondary_light: 'rgb(60,100,50)', wall_secondary_dark: 'rgb(40,80,30)', wall_secondary_detail_light: 'rgb(80,120,70)', wall_secondary_detail_dark: 'rgb(50,90,40)'}, playerStartAngle: 0 }
+            { 
+                map: createOpenMapWithObstacles([
+                    {r: 5, c: 5, w: 3, h: 1, type: 2}, // Horizontal obstacle
+                    {r: 10, c: 10, w: 1, h: 3, type: 1}, // Vertical obstacle
+                    {r: 7, c: 15, w: 2, h: 2, type: 2}  // Square obstacle
+                ]),
+                enemyConfigs: [ { x: MAP_WIDTH/2 + 2, y: MAP_HEIGHT/2, type: 'pink_monster'} ], 
+                paletteOverrides: {}, 
+                playerStartAngle: -Math.PI / 2 
+            },
+            { 
+                map: createOpenMapWithObstacles([
+                    {r: 3, c: 8, w: 1, h: 4, type: 1},
+                    {r: 8, c: 3, w: 4, h: 1, type: 2},
+                    {r: 12, c: 12, w: 3, h: 3, type: 1}
+                ]),
+                enemyConfigs: [ { x: MAP_WIDTH/4, y: MAP_HEIGHT/4, type: 'grunt'} ], 
+                paletteOverrides: { sky_top: 'rgb(100,40,20)', sky_bottom: 'rgb(150,60,40)', floor_light: 'rgb(120,80,70)', floor_dark: 'rgb(100,60,50)', wall_primary_light: 'rgb(180,100,80)', wall_primary_dark: 'rgb(150,70,50)', wall_primary_detail_light: 'rgb(200,120,100)', wall_primary_detail_dark: 'rgb(160,90,70)', wall_secondary_light: 'rgb(140,60,40)', wall_secondary_dark: 'rgb(110,40,20)', wall_secondary_detail_light: 'rgb(160,80,60)', wall_secondary_detail_dark: 'rgb(120,50,30)'}, 
+                playerStartAngle: Math.PI / 4 
+            },
+            { 
+                map: createOpenMapWithObstacles([
+                    {r: 7, c: 3, w: 2, h: 5, type: 2},
+                    {r: 2, c: 13, w: 5, h: 2, type: 1},
+                    {r: 10, c: 16, w: 2, h: 2, type: 2}
+                ]),
+                enemyConfigs: [ { x: MAP_WIDTH - 3, y: MAP_HEIGHT - 3, type: 'pink_monster'} ], 
+                paletteOverrides: { sky_top: 'rgb(40,80,30)', sky_bottom: 'rgb(60,120,50)', floor_light: 'rgb(70,90,60)', floor_dark: 'rgb(50,70,40)', wall_primary_light: 'rgb(100,140,90)', wall_primary_dark: 'rgb(70,110,60)', wall_primary_detail_light: 'rgb(120,160,110)', wall_primary_detail_dark: 'rgb(80,120,70)', wall_secondary_light: 'rgb(60,100,50)', wall_secondary_dark: 'rgb(40,80,30)', wall_secondary_detail_light: 'rgb(80,120,70)', wall_secondary_detail_dark: 'rgb(50,90,40)'}, 
+                playerStartAngle: 0 
+            }
         ];
 
         function findRandomOpenSpawnPoint() {
@@ -397,13 +450,25 @@
                     let newConfig = JSON.parse(JSON.stringify(baseConfig));
                     if (i > 0) { 
                         let newX, newY, attempts = 0;
+                        const maxSpawnAttempts = 30; // Prevent infinite loop for enemy spawning
                         do { 
-                            newX = baseConfig.x + (Math.random() - 0.5) * (2 + i * 0.5); 
-                            newY = baseConfig.y + (Math.random() - 0.5) * (2 + i * 0.5);
+                            // Spawn enemies in a wider area for subsequent playthroughs
+                            newX = baseConfig.x + (Math.random() - 0.5) * (2 + playthroughCount * 0.3); 
+                            newY = baseConfig.y + (Math.random() - 0.5) * (2 + playthroughCount * 0.3);
+                            // Clamp to map boundaries (excluding border)
+                            newX = Math.max(1.5, Math.min(map[0].length - 1.5, newX));
+                            newY = Math.max(1.5, Math.min(map.length - 1.5, newY));
                             attempts++;
-                        } while (isWall(newX, newY) && attempts < 20);
-                        newConfig.x = isWall(newX, newY) ? baseConfig.x : newX; 
-                        newConfig.y = isWall(newX, newY) ? baseConfig.y : newY;
+                        } while (isWall(newX, newY) && attempts < maxSpawnAttempts);
+                        
+                        if(isWall(newX, newY)){ // If still in a wall, try random open spot
+                            const enemySpawnPoint = findRandomOpenSpawnPoint();
+                            newConfig.x = enemySpawnPoint.x;
+                            newConfig.y = enemySpawnPoint.y;
+                        } else {
+                            newConfig.x = newX; 
+                            newConfig.y = newY;
+                        }
                     }
                     enemies.push(createEnemyInstance(newConfig, enemies.length, playthroughCount));
                 }
@@ -420,16 +485,16 @@
             
             if (audioContextStarted) { 
                  if (Tone && Tone.Transport.state !== "started") {
-                    Tone.Transport.seconds = 0; // Reset transport time before starting
+                    Tone.Transport.seconds = 0; 
                     Tone.Transport.start();
                  }
                  if (musicPart) {
                     if (musicPart.state !== "started") {
                         musicPart.start(0); 
                     }
-                 } else { // Should not happen if initAudio was called properly
+                 } else { 
                     console.warn("Music part not initialized when loading level, trying to init audio.");
-                    initAudio(); // Attempt to re-init if part is missing
+                    initAudio(); 
                  }
             }
             gameState = 'PLAYING';
@@ -442,7 +507,7 @@
             turnLeft: false, turnRight: false, shoot: false
         };
         function handleInteractionStart() { 
-            if (!audioContextStarted) { // Only call initAudio if context not yet started
+            if (!audioContextStarted) { 
                 initAudio();
             }
         }
@@ -864,4 +929,3 @@
     </script>
 </body>
 </html>
-
